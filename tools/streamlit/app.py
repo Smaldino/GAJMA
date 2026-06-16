@@ -90,4 +90,27 @@ with st.form("evaluation_form"):
 
     if submit:
         if not evaluator:
-            st.warning("⚠️ Please enter your name
+            st.warning("⚠️ Please enter your name!")
+        else:
+            notion_name = f"{selected_category} - {selected_video_name}"
+            try:
+                notion.pages.create(
+                    parent={"database_id": DB_ID},
+                    properties={
+                        "Video Name": {"title": [{"text": {"content": notion_name}}]},
+                        "Evaluator": {"rich_text": [{"text": {"content": evaluator}}]},
+                        "Coherence": {"number": coherence},
+                        "Fluidity": {"number": fluidity},
+                        "Style": {"number": style},
+                        "Quality": {"number": quality},
+                        "Notes": {"rich_text": [{"text": {"content": notes}}]},
+                        "Date": {"date": {"start": datetime.now().isoformat()}}
+                    }
+                )
+                st.success(f"✅ Evaluation for '{notion_name}' saved to Notion!")
+            except Exception as e:
+                st.error(f"Notion Error: {e}")
+
+with st.expander("🛠️ Debug Info"):
+    st.write(f"**Absolute Path:** `{selected_path}`")
+    st.write(f"**Size:** {Path(selected_path).stat().st_size / (1024*1024):.2f} MB")
