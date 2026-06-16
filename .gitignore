@@ -1,0 +1,102 @@
+# ==========================================
+# 1. VIRTUAL ENVIRONMENTS (CRITICAL)
+# ==========================================
+# Never push your local Python environment to GitHub
+myenv/
+venv/
+.venv/
+env/
+ENV/
+
+# ==========================================
+# 2. DATA, WEIGHTS & LARGE MEDIA (GITHUB LIMIT PROTECTION)
+# ==========================================
+# Raw and processed datasets (Too large for GitHub)
+data/raw/
+data/processed/
+data/manga-grid-panels/
+samples/*.mp4
+
+# Images
+*.jpg
+*.jpeg
+*.png
+
+# Video Outputs
+*.mp4
+*.avi
+*.mkv
+*.mov
+*.zip
+*.tar.gz
+*.rar
+
+# AI Model Weights & Binaries
+*.ckpt
+*.safetensors
+*.pt
+*.pth
+*.onnx
+*.bin
+models/
+rife_engine/
+
+# ==========================================
+# 3. SECRETS & CREDENTIALS
+# ==========================================
+# Never push API keys or Notion tokens
+.env
+.env.local
+.streamlit/secrets.toml
+tools/streamlit/.streamlit/secrets.toml
+**/secrets.toml
+
+# ==========================================
+# 4. PYTHON ARTIFACTS & CACHE
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# ==========================================
+# 5. IDE & OS GENERATED FILES
+# ==========================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==========================================
+# 6. LOGS, TEMP & MISC OUTPUTS
+# ==========================================
+*.log
+*.tmp
+*.bak
+outputs/
+logs/
+evaluation_results/*.mp4
