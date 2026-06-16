@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 # 1. Initial Configuration
-BASE_VIDEO_FOLDER = Path(r"C:\Users\Fabbro\Documents\CODING\UNIVERSITA\CV\Post-Processing\video_input")
+BASE_VIDEO_FOLDER = Path(r"GAJMA\data\videos")
 st.set_page_config(page_title="Manga Animation Evaluator", page_icon="🎓", layout="wide")
 st.title("🎓 Qualitative Manga Animation Evaluation (Thesis)")
 st.markdown("This app is designed for the **Human-in-the-Loop** evaluation of generated animations.")

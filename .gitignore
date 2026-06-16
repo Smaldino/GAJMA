@@ -23,7 +23,7 @@ samples/*.mp4
 *.png
 
 # Video Outputs
-*.mp4
+# *.mp4
 *.avi
 *.mkv
 *.mov
