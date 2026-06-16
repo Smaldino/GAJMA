@@ -5,7 +5,7 @@ from pathlib import Path
 
 # 1. Initial Configuration
 # Update this path to your actual local or mounted folder
-BASE_VIDEO_FOLDER = Path(r"C:\Users\Fabbro\Documents\CODING\UNIVERSITA\CV\Post-Processing\video_input") 
+BASE_VIDEO_FOLDER = Path(r"./data./videos") 
 
 st.set_page_config(page_title="Manga Animation Evaluator", page_icon="🎓", layout="wide")
 st.title("🎓 Qualitative Manga Animation Evaluation")
