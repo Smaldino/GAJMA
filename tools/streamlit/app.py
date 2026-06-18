@@ -4,69 +4,72 @@ from datetime import datetime
 from pathlib import Path
 
 # 1. Initial Configuration
-# Anchor to the script's location to avoid working directory issues on Streamlit Cloud
 SCRIPT_DIR = Path(__file__).parent.resolve()
-REPO_ROOT = SCRIPT_DIR.parent.parent  # tools/streamlit -> tools -> root
+REPO_ROOT = SCRIPT_DIR.parent.parent  
 BASE_VIDEO_FOLDER = REPO_ROOT / "data" / "videos"
 
 st.set_page_config(page_title="Manga Animation Evaluator", page_icon="🎓", layout="wide")
 st.title("🎓 Qualitative Manga Animation Evaluation")
-st.markdown("This app is designed for the **Human-in-the-Loop** evaluation of generated animations (Ablation Study & Proposed Pipeline).")
+st.markdown("This interactive tool showcases the curated results of the proposed pipeline versus the Naive Baseline for the GAJMA2.0 challenge defense.")
 
-# 2. Structured Video Detection
-with st.spinner("Scanning and organizing videos..."):
+# 2. Define the Curated Whitelist (The 8 Hero Shots)
+# Grouped logically to guide the commission through your thesis narrative
+CATEGORIES = {
+    "1. Stable Dialogue & Pans (Parallax Smooth)": [
+        {"manga": "akuhamu", "style": "Parallax_Smooth", "file": "Parallax_Smooth_Final_32fps.mp4", "display": "Akuhamu (Rank #1 Overall)"},
+        {"manga": "TetsuSan", "style": "Parallax_Smooth", "file": "Parallax_Smooth_Final_32fps.mp4", "display": "TetsuSan (Rank #6)"},
+        {"manga": "OL_lunch", "style": "Parallax_Smooth", "file": "Parallax_Smooth_Final_32fps.mp4", "display": "OL_lunch (Rank #9)"},
+    ],
+    "2. Cinematic Depth-of-Field (Rack Focus / Bokeh)": [
+        {"manga": "akuhamu", "style": "Rack_Focus", "file": "Rack_Focus_Final_32fps.mp4", "display": "Akuhamu Rack Focus (Rank #5)"},
+        {"manga": "TetsuSan", "style": "Rack_Focus", "file": "Rack_Focus_Final_32fps.mp4", "display": "TetsuSan Rack Focus (Rank #7)"},
+        {"manga": "OL_lunch", "style": "Dolly_Bokeh", "file": "Dolly_Bokeh_Final_32fps.mp4", "display": "OL_lunch Dolly Bokeh (Rank #8)"},
+    ],
+    "3. High Action Routing (Dynamic Controlled)": [
+        {"manga": "akuhamu", "style": "Dynamic_Controlled", "file": "Dynamic_Controlled_Final_32fps.mp4", "display": "Akuhamu Action (Rank #11)"},
+    ],
+    "4. ⚠️ Naive Baseline (Control Group)": [
+        {"manga": "z-naive", "style": "Akuhamu", "file": "Full_Manga_Animation_32fps.mp4", "display": "Naive Akuhamu (Text Melting)"},
+        {"manga": "z-naive", "style": "Tetsusan", "file": "Full_Manga_Animation_32fps.mp4", "display": "Naive TetsuSan (Text Melting)"},
+    ]
+}
+
+# 3. Scan and Map Videos
+with st.spinner("Locating curated evaluation videos..."):
     video_database = {}
-    manga_counters = {}
+    missing_videos = []
     
     if not BASE_VIDEO_FOLDER.exists():
-        st.error(f"❌ Folder not found: `{BASE_VIDEO_FOLDER}`. Please ensure the `data/videos` folder exists in your GitHub repository.")
+        st.error(f"❌ Folder not found: `{BASE_VIDEO_FOLDER}`. Please ensure the `data/videos` folder exists in your repository.")
         st.stop()
 
-    # Find all mp4s recursively (Removed the strict "final_compilation" requirement)
-    all_mp4s = sorted(list(BASE_VIDEO_FOLDER.rglob("*.mp4")))
-    
-    for mp4_path in all_mp4s:
-        parts = mp4_path.parts
-        try:
-            # Look for 'videos' in the path to anchor the manga and style
-            v_idx = parts.index('videos')
-            manga_name = parts[v_idx + 1]
+    for category, videos in CATEGORIES.items():
+        video_database[category] = {}
+        for v_info in videos:
+            # Search recursively for the exact filename
+            found_path = None
+            for path in BASE_VIDEO_FOLDER.rglob(v_info["file"]):
+                # Verify it belongs to the correct manga/style to avoid picking up wrong duplicates
+                if v_info["manga"].lower() in str(path).lower() and v_info["style"].lower() in str(path).lower():
+                    found_path = path
+                    break
             
-            # Style could be a subfolder OR the filename itself
-            if v_idx + 2 < len(parts):
-                style_name = parts[v_idx + 2]
-                # If the style name includes the extension, strip it
-                if style_name.endswith('.mp4'):
-                    style_name = style_name.replace('.mp4', '')
+            if found_path:
+                video_database[category][v_info["display"]] = str(found_path)
             else:
-                style_name = "General"
-                
-        except (ValueError, IndexError):
-            # Fallback if 'videos' is not in the path parts
-            manga_name = mp4_path.parent.name
-            style_name = mp4_path.stem
-            
-        # Format Style Name: "Dolly_Bokeh" -> "Dolly Bokeh"
-        style_display = style_name.replace('_', ' ').title()
-        
-        if style_display not in video_database:
-            video_database[style_display] = {}
-            
-        # Track manga counts to assign a sequential number per manga
-        if manga_name not in manga_counters:
-            manga_counters[manga_name] = 0
-        manga_counters[manga_name] += 1
-        
-        # Format Video Name: "TetsuSan - 1"
-        video_display = f"{manga_name} - {manga_counters[manga_name]}"
-        
-        video_database[style_display][video_display] = str(mp4_path)
+                missing_videos.append(f"{v_info['manga']} / {v_info['style']}")
+
+    if missing_videos:
+        st.warning(f"⚠️ Could not locate {len(missing_videos)} videos in `{BASE_VIDEO_FOLDER}`. They will be hidden. Missing: {', '.join(missing_videos)}")
+
+    # Clean up empty categories
+    video_database = {k: v for k, v in video_database.items() if v}
 
     if not video_database:
-        st.error(f"No `.mp4` videos found under `{BASE_VIDEO_FOLDER}`. Please check your GitHub repo structure.")
+        st.error("No curated videos found. Please check your folder structure.")
         st.stop()
 
-# 3. Notion Integration
+# 4. Notion Integration
 try:
     notion = Client(auth=st.secrets["NOTION_TOKEN"])
     DB_ID = st.secrets["DATABASE_ID"]
@@ -78,25 +81,24 @@ except Exception as e:
     st.error(f"Notion Connection Error: {e}")
     st.stop()
 
-# 4. Multi-Level UI Interface
+# 5. Multi-Level UI Interface
 st.sidebar.header("🎬 Video Selection")
 
-# Dropdown 1: Select Style
-available_styles = sorted(list(video_database.keys()))
-selected_style = st.sidebar.selectbox("1. Select Cinematography Style", available_styles)
+# Dropdown 1: Select Category
+available_categories = sorted(list(video_database.keys()))
+selected_category = st.sidebar.selectbox("1. Select Evaluation Category", available_categories)
 
-# Dropdown 2: Select Video (Manga + Number)
-available_videos = sorted(list(video_database[selected_style].keys()))
+# Dropdown 2: Select Video
+available_videos = sorted(list(video_database[selected_category].keys()))
 selected_video = st.sidebar.selectbox("2. Select Manga Clip", available_videos)
 
-selected_path = video_database[selected_style][selected_video]
+selected_path = video_database[selected_category][selected_video]
 
-st.subheader(f"📺 {selected_style} | {selected_video}")
+st.subheader(f"📺 {selected_category} | {selected_video}")
 
 # Reduce video dimension by placing it in the center column (50% width)
 col_left, col_center, col_right = st.columns([1, 2, 1])
 with col_center:
-    # Read as bytes for more reliable streaming on cloud containers
     try:
         with open(selected_path, 'rb') as video_file:
             video_bytes = video_file.read()
@@ -129,7 +131,7 @@ with st.form("evaluation_form"):
         elif notion is None:
             st.error("Cannot save to Notion: Secrets not configured in Streamlit Cloud Settings.")
         else:
-            notion_title = f"{selected_style} | {selected_video}"
+            notion_title = f"{selected_category} | {selected_video}"
             try:
                 notion.pages.create(
                     parent={"database_id": DB_ID},
