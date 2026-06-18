@@ -4,8 +4,10 @@ from datetime import datetime
 from pathlib import Path
 
 # 1. Initial Configuration
-# Update this path to your actual local or mounted folder
-BASE_VIDEO_FOLDER = Path(r"./data./videos") 
+# Anchor to the script's location to avoid working directory issues on Streamlit Cloud
+SCRIPT_DIR = Path(__file__).parent.resolve()
+REPO_ROOT = SCRIPT_DIR.parent.parent  # tools/streamlit -> tools -> root
+BASE_VIDEO_FOLDER = REPO_ROOT / "data" / "videos"
 
 st.set_page_config(page_title="Manga Animation Evaluator", page_icon="🎓", layout="wide")
 st.title("🎓 Qualitative Manga Animation Evaluation")
@@ -16,18 +18,33 @@ with st.spinner("Scanning and organizing videos..."):
     video_database = {}
     manga_counters = {}
     
-    # Find all mp4s inside final_compilation folders
-    all_mp4s = sorted(list(BASE_VIDEO_FOLDER.rglob("final_compilation/*.mp4")))
+    if not BASE_VIDEO_FOLDER.exists():
+        st.error(f"❌ Folder not found: `{BASE_VIDEO_FOLDER}`. Please ensure the `data/videos` folder exists in your GitHub repository.")
+        st.stop()
+
+    # Find all mp4s recursively (Removed the strict "final_compilation" requirement)
+    all_mp4s = sorted(list(BASE_VIDEO_FOLDER.rglob("*.mp4")))
     
     for mp4_path in all_mp4s:
         parts = mp4_path.parts
         try:
-            # Expected structure: .../video_input/{manga}/{style}/final_compilation/{file}.mp4
-            vi_idx = parts.index('video_input')
-            manga_name = parts[vi_idx + 1]
-            style_name = parts[vi_idx + 2]
+            # Look for 'videos' in the path to anchor the manga and style
+            v_idx = parts.index('videos')
+            manga_name = parts[v_idx + 1]
+            
+            # Style could be a subfolder OR the filename itself
+            if v_idx + 2 < len(parts):
+                style_name = parts[v_idx + 2]
+                # If the style name includes the extension, strip it
+                if style_name.endswith('.mp4'):
+                    style_name = style_name.replace('.mp4', '')
+            else:
+                style_name = "General"
+                
         except (ValueError, IndexError):
-            continue
+            # Fallback if 'videos' is not in the path parts
+            manga_name = mp4_path.parent.name
+            style_name = mp4_path.stem
             
         # Format Style Name: "Dolly_Bokeh" -> "Dolly Bokeh"
         style_display = style_name.replace('_', ' ').title()
@@ -46,7 +63,7 @@ with st.spinner("Scanning and organizing videos..."):
         video_database[style_display][video_display] = str(mp4_path)
 
     if not video_database:
-        st.error(f"No videos found in `final_compilation` folders under `{BASE_VIDEO_FOLDER}`.")
+        st.error(f"No `.mp4` videos found under `{BASE_VIDEO_FOLDER}`. Please check your GitHub repo structure.")
         st.stop()
 
 # 3. Notion Integration
@@ -54,7 +71,7 @@ try:
     notion = Client(auth=st.secrets["NOTION_TOKEN"])
     DB_ID = st.secrets["DATABASE_ID"]
 except KeyError:
-    st.warning("⚠️ Notion secrets not found. Evaluations will not be saved to Notion. (Add NOTION_TOKEN and DATABASE_ID to .streamlit/secrets.toml)")
+    st.warning("⚠️ Notion secrets not found. Evaluations will not be saved to Notion. (Add NOTION_TOKEN and DATABASE_ID to Streamlit Cloud Secrets)")
     notion = None
     DB_ID = None
 except Exception as e:
@@ -79,7 +96,13 @@ st.subheader(f"📺 {selected_style} | {selected_video}")
 # Reduce video dimension by placing it in the center column (50% width)
 col_left, col_center, col_right = st.columns([1, 2, 1])
 with col_center:
-    st.video(selected_path)
+    # Read as bytes for more reliable streaming on cloud containers
+    try:
+        with open(selected_path, 'rb') as video_file:
+            video_bytes = video_file.read()
+        st.video(video_bytes)
+    except Exception as e:
+        st.error(f"Error loading video: {e}")
 
 st.markdown("---")
 
@@ -104,7 +127,7 @@ with st.form("evaluation_form"):
         if not evaluator:
             st.warning("⚠️ Please enter your name!")
         elif notion is None:
-            st.error("Cannot save to Notion: Secrets not configured.")
+            st.error("Cannot save to Notion: Secrets not configured in Streamlit Cloud Settings.")
         else:
             notion_title = f"{selected_style} | {selected_video}"
             try:
